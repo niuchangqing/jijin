@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +22,8 @@ import redis.clients.jedis.Jedis;
 public class HistoryData {
 	private static Logger logger = LoggerFactory.getLogger(LoadTotalIds.class);
 
+	private static AtomicInteger count = new AtomicInteger();
+
 	public static void synHistoryDatas() {
 		Jedis jedis = RedisClient.getInstance();
 		Set<String> ids = new HashSet<String>();
@@ -30,6 +33,8 @@ public class HistoryData {
 			// return;
 			// }
 			ids = jedis.smembers("jijin.ids");
+			count.set(ids.size());
+			jedis.set("total", ids.size() + "");
 			// jedis.incr("history");
 		} catch (Exception e) {
 			logger.error("从缓存取所有id异常：", e);
@@ -45,6 +50,7 @@ public class HistoryData {
 				ThreadPool.execute(new Runnable() {
 					@Override
 					public void run() {
+						logger.error("添加任務" + id);
 						detail(id);
 					}
 				});
@@ -84,8 +90,10 @@ public class HistoryData {
 			for (DetailModel detailModel : details) {
 				detailModel.setCode(id);
 			}
-			SaveDatas.save(details);
-			logger.error("id-" + id + " success !");
+			SaveDatas2.save(details);
+			int decrementAndGet = count.decrementAndGet();
+			logger.error("id-" + id + " success ! count = " + decrementAndGet);
+
 		} catch (Exception e) {
 			logger.error("", e);
 			Jedis jedis = RedisClient.getInstance();
